@@ -1,4 +1,5 @@
 #include "ClockScreen.h"
+#include "SleekFont.h"
 #include "TallFont.h"
 #include <math.h>
 #include <string.h>
@@ -78,6 +79,54 @@ void drawTallStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
   }
 }
 
+// Helper function to draw the custom sleek font to a Sprite for tear-free
+// rendering
+void drawSleekStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
+                           const char *str, uint16_t color) {
+  int len = strlen(str);
+  int total_w = 0;
+  for (int i = 0; i < len; i++) {
+    int idx = -1;
+    if (str[i] >= '0' && str[i] <= '9')
+      idx = str[i] - '0';
+    else if (str[i] == ':')
+      idx = 10;
+    if (idx >= 0)
+      total_w += sleek_digit_widths[idx] + 2; // 2px letter spacing
+    else if (str[i] == ' ')
+      total_w += sleek_digit_widths[10] + 2;
+  }
+  if (total_w > 0)
+    total_w -= 2;
+
+  int start_x = (sprite_w - total_w) / 2;
+  int start_y = (sprite_h - SLEEK_DIGIT_H) / 2;
+
+  int curr_x = start_x;
+  for (int i = 0; i < len; i++) {
+    int idx = -1;
+    if (str[i] >= '0' && str[i] <= '9')
+      idx = str[i] - '0';
+    else if (str[i] == ':')
+      idx = 10;
+
+    if (idx >= 0) {
+      int w = sleek_digit_widths[idx];
+      int bytes_per_row = (w + 7) / 8;
+      const uint8_t *bmp = sleek_digits + sleek_digit_offsets[idx];
+      for (int y = 0; y < SLEEK_DIGIT_H; y++) {
+        for (int x = 0; x < w; x++) {
+          if (bmp[y * bytes_per_row + x / 8] & (1 << (7 - (x % 8)))) {
+            spr.drawPixel(curr_x + x, start_y + y, color);
+          }
+        }
+      }
+      curr_x += w + 2;
+    } else if (str[i] == ' ') {
+      curr_x += sleek_digit_widths[10] + 2;
+    }
+  }
+}
 // Draw the radial gradient portion into the sprite memory
 void drawGradientPart(TFT_eSprite &spr, int sprite_w, int sprite_h,
                       int screen_start_y) {
@@ -209,28 +258,38 @@ void ClockScreen::draw(TFT_eSPI &tft) {
 
     } else { // SLEEK
       uint16_t bgCol = COL_SLEEK_BG;
-      tft.setTextDatum(BC_DATUM);
-      tft.setTextColor(COL_SLEEK_DATE, bgCol);
-      tft.drawString(dateBuf, X_CENTRE, Y_SLEEK_DATE, 2);
 
-      int wBlock = tft.textWidth("00:", 6);
-      int sleekX = (128 - wBlock) / 2;
+      // Using sleek sprite to avoid flicker and use proportional font
+      int box_h = SLEEK_DIGIT_H + 4;
 
       char bufH[8], bufM[8], bufS[8];
       sprintf(bufH, "%02d:", _lastTime.hour());
       sprintf(bufM, "%02d:", _lastTime.minute());
-      sprintf(bufS, "%02d", _lastTime.second());
+      sprintf(bufS, "%02d ", _lastTime.second());
 
-      tft.setTextDatum(TL_DATUM);
+      TFT_eSprite sprH = TFT_eSprite(&tft);
+      sprH.setColorDepth(16);
+      sprH.createSprite(128, box_h);
+      sprH.fillSprite(bgCol);
+      drawSleekStringSprite(sprH, 128, box_h, bufH, COL_SLEEK_HOURS);
+      sprH.pushSprite(0, Y_SLEEK_HOUR);
+      sprH.deleteSprite();
 
-      tft.setTextColor(COL_SLEEK_HOURS, bgCol);
-      tft.drawString(bufH, sleekX, Y_SLEEK_HOUR, 6);
+      TFT_eSprite sprM = TFT_eSprite(&tft);
+      sprM.setColorDepth(16);
+      sprM.createSprite(128, box_h);
+      sprM.fillSprite(bgCol);
+      drawSleekStringSprite(sprM, 128, box_h, bufM, COL_SLEEK_MINS);
+      sprM.pushSprite(0, Y_SLEEK_MIN);
+      sprM.deleteSprite();
 
-      tft.setTextColor(COL_SLEEK_MINS, bgCol);
-      tft.drawString(bufM, sleekX, Y_SLEEK_MIN, 6);
-
-      tft.setTextColor(COL_SLEEK_SECS, bgCol);
-      tft.drawString(bufS, sleekX, Y_SLEEK_SEC, 6);
+      TFT_eSprite sprS = TFT_eSprite(&tft);
+      sprS.setColorDepth(16);
+      sprS.createSprite(128, box_h);
+      sprS.fillSprite(bgCol);
+      drawSleekStringSprite(sprS, 128, box_h, bufS, COL_SLEEK_SECS);
+      sprS.pushSprite(0, Y_SLEEK_SEC);
+      sprS.deleteSprite();
     }
 
     _needsFullRedraw = false;
@@ -257,17 +316,18 @@ void ClockScreen::draw(TFT_eSPI &tft) {
 
     } else { // SLEEK
       uint16_t bgCol = COL_SLEEK_BG;
-      int wBlock = tft.textWidth("00:", 6);
-      int sleekX = (128 - wBlock) / 2;
-
-      tft.fillRect(0, Y_SLEEK_SEC, 128, 48, bgCol);
+      int box_h = SLEEK_DIGIT_H + 4;
+      TFT_eSprite sprS = TFT_eSprite(&tft);
+      sprS.setColorDepth(16);
+      sprS.createSprite(128, box_h);
+      sprS.fillSprite(bgCol);
 
       char bufS[8];
-      sprintf(bufS, "%02d", _lastTime.second());
+      sprintf(bufS, "%02d ", _lastTime.second());
 
-      tft.setTextDatum(TL_DATUM);
-      tft.setTextColor(COL_SLEEK_SECS, bgCol);
-      tft.drawString(bufS, sleekX, Y_SLEEK_SEC, 6);
+      drawSleekStringSprite(sprS, 128, box_h, bufS, COL_SLEEK_SECS);
+      sprS.pushSprite(0, Y_SLEEK_SEC);
+      sprS.deleteSprite();
     }
     _needsTimeRedraw = false;
   }
