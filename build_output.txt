@@ -1,0 +1,302 @@
+﻿********************************************************************************
+Obsolete PIO Core v6.1.18 is used (previous was 6.1.19)
+Please remove multiple PIO Cores from a system:
+https://docs.platformio.org/en/latest/core/installation/troubleshooting.html
+********************************************************************************
+Processing esp32-c3-devkitc-02 (platform: espressif32; board: esp32-c3-devkitc-02; framework: arduino)
+--------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32-c3-devkitc-02.html
+PLATFORM: Espressif 32 (6.9.0+sha.61e9531) > Espressif ESP32-C3-DevKitC-02
+HARDWARE: ESP32C3 160MHz, 320KB RAM, 4MB Flash
+DEBUG: Current (cmsis-dap) External (cmsis-dap, esp-bridge, esp-builtin, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-arduinoespressif32 @ 3.20017.0 (2.0.17) 
+ - tool-esptoolpy @ 1.40501.0 (4.5.1) 
+ - toolchain-riscv32-esp @ 8.4.0+2021r2-patch5
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 39 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- ArduinoJson @ 7.4.2
+|-- TFT_eSPI @ 2.5.43
+|-- Adafruit BME280 Library @ 2.3.0
+|-- RTClib @ 2.1.4
+|-- Adafruit Unified Sensor @ 1.1.15
+|-- Wire @ 2.0.0
+|-- HTTPClient @ 2.0.0
+|-- Preferences @ 2.0.0
+|-- WiFi @ 2.0.0
+Building in release mode
+Compiling .pio\build\esp32-c3-devkitc-02\src\ClockScreen.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\EnvScreen.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\HardwareManager.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\InputManager.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\KeyboardView.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\MoonScreen.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\NetworkManager.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\ScreenManager.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\SetupScreen.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\WeatherScreen.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\src\main.cpp.o
+Building .pio\build\esp32-c3-devkitc-02\bootloader.bin
+esptool.py v4.5.1
+Creating esp32c3 image...
+Merged 1 ELF section
+Successfully created esp32c3 image.
+Generating partitions .pio\build\esp32-c3-devkitc-02\partitions.bin
+Compiling .pio\build\esp32-c3-devkitc-02\lib0dc\SPI\SPI.cpp.o
+pio : In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+At line:1 char:1
++ pio run 2>&1 | Out-File -FilePath build_output.txt -Encoding utf8; Ge ...
++ ~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (In file include.../TFT_eSPI.h:99,:String) [], RemoteExcep 
+   tion
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+                 from src/KeyboardView.h:5,
+                 from src/KeyboardView.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from src/Icons.h:5,
+                 from src/EnvScreen.h:4,
+                 from src/EnvScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from src/KeyboardView.h:5,
+                 from src/KeyboardView.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from src/Icons.h:5,
+                 from src/WeatherScreen.h:4,
+                 from src/WeatherScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from src/KeyboardView.h:5,
+                 from src/SetupScreen.h:4,
+                 from src/SetupScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from src/Icons.h:5,
+                 from src/MoonScreen.h:4,
+                 from src/MoonScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from src/Icons.h:5,
+                 from src/EnvScreen.h:4,
+                 from src/EnvScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+In file included from src/Icons.h:5,
+                 from src/WeatherScreen.h:4,
+                 from src/WeatherScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+In file included from src/Icons.h:5,
+                 from src/MoonScreen.h:4,
+                 from src/MoonScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+In file included from src/KeyboardView.h:5,
+                 from src/SetupScreen.h:4,
+                 from src/SetupScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+Compiling .pio\build\esp32-c3-devkitc-02\libe29\FS\FS.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\libe29\FS\vfs_api.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib6e4\SPIFFS\SPIFFS.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib0dc\libSPI.a
+Indexing .pio\build\esp32-c3-devkitc-02\lib0dc\libSPI.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib229\LittleFS\LittleFS.cpp.o
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from src/ScreenManager.h:8,
+                 from src/ClockScreen.h:4,
+                 from src/ClockScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from src/ScreenManager.h:8,
+                 from src/ScreenManager.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from src/ScreenManager.h:8,
+                 from src/main.cpp:5:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from src/ScreenManager.h:8,
+                 from src/ClockScreen.h:4,
+                 from src/ClockScreen.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+In file included from src/ScreenManager.h:8,
+                 from src/ScreenManager.cpp:1:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+In file included from src/ScreenManager.h:8,
+                 from src/main.cpp:5:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+Compiling .pio\build\esp32-c3-devkitc-02\lib092\TFT_eSPI\TFT_eSPI.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\libef3\Wire\Wire.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib148\Adafruit BusIO\Adafruit_BusIO_Register.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib148\Adafruit BusIO\Adafruit_GenericDevice.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib6e4\libSPIFFS.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib148\Adafruit BusIO\Adafruit_I2CDevice.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib148\Adafruit BusIO\Adafruit_SPIDevice.cpp.o
+Indexing .pio\build\esp32-c3-devkitc-02\lib6e4\libSPIFFS.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib950\Adafruit Unified Sensor\Adafruit_Sensor.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\libe29\libFS.a
+Indexing .pio\build\esp32-c3-devkitc-02\libe29\libFS.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib731\Adafruit BME280 Library\Adafruit_BME280.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib229\libLittleFS.a
+Indexing .pio\build\esp32-c3-devkitc-02\lib229\libLittleFS.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib64a\RTClib\RTC_DS1307.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib64a\RTClib\RTC_DS3231.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib64a\RTClib\RTC_Micros.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib64a\RTClib\RTC_Millis.cpp.o
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:99,
+                 from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.cpp:16:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/Processors/TFT_eSPI_ESP32_C3.h:12:2: warning: #warning 
+>>>>------>> DMA is not supported on the ESP32 C3 (possible future update) [-Wcpp]
+ #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
+  ^~~~~~~
+In file included from .pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.cpp:16:
+.pio/libdeps/esp32-c3-devkitc-02/TFT_eSPI/TFT_eSPI.h:973:8: warning: #warning >>>>------>> TOUCH_CS 
+pin not defined, TFT_eSPI touch functions will not be available! [-Wcpp]
+       #warning >>>>------>> TOUCH_CS pin not defined, TFT_eSPI touch functions will not be available!
+        ^~~~~~~
+Archiving .pio\build\esp32-c3-devkitc-02\libef3\libWire.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib64a\RTClib\RTC_PCF8523.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib64a\RTClib\RTC_PCF8563.cpp.o
+Indexing .pio\build\esp32-c3-devkitc-02\libef3\libWire.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib64a\RTClib\RTClib.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFi.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib950\libAdafruit Unified Sensor.a
+Archiving .pio\build\esp32-c3-devkitc-02\lib148\libAdafruit BusIO.a
+Indexing .pio\build\esp32-c3-devkitc-02\lib950\libAdafruit Unified Sensor.a
+Indexing .pio\build\esp32-c3-devkitc-02\lib148\libAdafruit BusIO.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiAP.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiClient.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiGeneric.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiMulti.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiSTA.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiScan.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib731\libAdafruit BME280 Library.a
+Indexing .pio\build\esp32-c3-devkitc-02\lib731\libAdafruit BME280 Library.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiServer.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib092\libTFT_eSPI.a
+Indexing .pio\build\esp32-c3-devkitc-02\lib092\libTFT_eSPI.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib55a\WiFi\WiFiUdp.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\libde2\WiFiClientSecure\WiFiClientSecure.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\libde2\WiFiClientSecure\esp_crt_bundle.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\libde2\WiFiClientSecure\ssl_client.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib64a\libRTClib.a
+Indexing .pio\build\esp32-c3-devkitc-02\lib64a\libRTClib.a
+Compiling .pio\build\esp32-c3-devkitc-02\lib9db\HTTPClient\HTTPClient.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\libc80\Preferences\Preferences.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\Esp.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\FirmwareMSC.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\FunctionalInterrupt.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\HWCDC.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\HardwareSerial.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\IPAddress.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\IPv6Address.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib55a\libWiFi.a
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\MD5Builder.cpp.o
+Indexing .pio\build\esp32-c3-devkitc-02\lib55a\libWiFi.a
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\Print.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\Stream.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\StreamString.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\libde2\libWiFiClientSecure.a
+Indexing .pio\build\esp32-c3-devkitc-02\libde2\libWiFiClientSecure.a
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\Tone.cpp.o
+Archiving .pio\build\esp32-c3-devkitc-02\libc80\libPreferences.a
+Indexing .pio\build\esp32-c3-devkitc-02\libc80\libPreferences.a
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\USB.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\USBCDC.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\USBMSC.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\WMath.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\WString.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\base64.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\cbuf.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-adc.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-bt.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-cpu.c.o
+Archiving .pio\build\esp32-c3-devkitc-02\lib9db\libHTTPClient.a
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-dac.c.o
+Indexing .pio\build\esp32-c3-devkitc-02\lib9db\libHTTPClient.a
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-gpio.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-i2c-slave.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-i2c.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-ledc.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-matrix.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-misc.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-psram.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-rgb-led.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-rmt.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-sigmadelta.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-spi.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-time.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-timer.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-tinyusb.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-touch.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\esp32-hal-uart.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\firmware_msc_fat.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\libb64\cdecode.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\libb64\cencode.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\main.cpp.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\stdlib_noniso.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\wiring_pulse.c.o
+Compiling .pio\build\esp32-c3-devkitc-02\FrameworkArduino\wiring_shift.c.o
+Archiving .pio\build\esp32-c3-devkitc-02\libFrameworkArduino.a
+Indexing .pio\build\esp32-c3-devkitc-02\libFrameworkArduino.a
+Linking .pio\build\esp32-c3-devkitc-02\firmware.elf
+Retrieving maximum program size .pio\build\esp32-c3-devkitc-02\firmware.elf
+Checking size .pio\build\esp32-c3-devkitc-02\firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [=         ]  12.1% (used 39700 bytes from 327680 bytes)
+Flash: [======    ]  61.7% (used 808276 bytes from 1310720 bytes)
+Building .pio\build\esp32-c3-devkitc-02\firmware.bin
+esptool.py v4.5.1
+Creating esp32c3 image...
+Merged 2 ELF sections
+Successfully created esp32c3 image.
+========================= [SUCCESS] Took 37.56 seconds =========================
