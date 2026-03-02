@@ -317,14 +317,32 @@ void ClockScreen::draw(TFT_eSPI &tft) {
     } else { // SLEEK
       uint16_t bgCol = COL_SLEEK_BG;
       int box_h = SLEEK_DIGIT_H + 4;
+
+      char bufH[8], bufM[8], bufS[8];
+      sprintf(bufH, "%02d:", _lastTime.hour());
+      sprintf(bufM, "%02d:", _lastTime.minute());
+      sprintf(bufS, "%02d ", _lastTime.second());
+
+      TFT_eSprite sprH = TFT_eSprite(&tft);
+      sprH.setColorDepth(16);
+      sprH.createSprite(128, box_h);
+      sprH.fillSprite(bgCol);
+      drawSleekStringSprite(sprH, 128, box_h, bufH, COL_SLEEK_HOURS);
+      sprH.pushSprite(0, Y_SLEEK_HOUR);
+      sprH.deleteSprite();
+
+      TFT_eSprite sprM = TFT_eSprite(&tft);
+      sprM.setColorDepth(16);
+      sprM.createSprite(128, box_h);
+      sprM.fillSprite(bgCol);
+      drawSleekStringSprite(sprM, 128, box_h, bufM, COL_SLEEK_MINS);
+      sprM.pushSprite(0, Y_SLEEK_MIN);
+      sprM.deleteSprite();
+
       TFT_eSprite sprS = TFT_eSprite(&tft);
       sprS.setColorDepth(16);
       sprS.createSprite(128, box_h);
       sprS.fillSprite(bgCol);
-
-      char bufS[8];
-      sprintf(bufS, "%02d ", _lastTime.second());
-
       drawSleekStringSprite(sprS, 128, box_h, bufS, COL_SLEEK_SECS);
       sprS.pushSprite(0, Y_SLEEK_SEC);
       sprS.deleteSprite();
