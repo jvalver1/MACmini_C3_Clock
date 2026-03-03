@@ -16,21 +16,22 @@ inline uint16_t HW_COLOR(uint8_t r, uint8_t g, uint8_t b) {
 #define COL_GRAD_DATE HW_COLOR(255, 255, 255) // White
 
 // Sleek Modern theme
-#define COL_SLEEK_HOURS HW_COLOR(255, 255, 255) // White
-#define COL_SLEEK_MINS HW_COLOR(0, 255, 255)    // Cyan
-#define COL_SLEEK_SECS HW_COLOR(255, 0, 0)      // Red
-#define COL_SLEEK_DATE HW_COLOR(255, 255, 255)  // White
-#define COL_SLEEK_BG HW_COLOR(18, 18, 18)       // Very dark grey
+#define COL_SLEEK_HOURS HW_COLOR(255, 255, 255)  // White
+#define COL_SLEEK_MINS HW_COLOR(0, 255, 255)     // Cyan
+#define COL_SLEEK_SECS HW_COLOR(255, 0, 0)       // Red
+#define COL_SLEEK_DATE HW_COLOR(255, 255, 255)   // White
+#define COL_SLEEK_BG HW_COLOR(18, 18, 18)        // Very dark grey
+#define COL_SLEEK_BORDER HW_COLOR(150, 150, 150) // Light grey
 
 // ── Layout (both themes)
 // ──────────────────────────────────────────────────────
 #define Y_GRAD_TIME 80 // Center position
 #define Y_GRAD_DATE 140
 
-#define Y_SLEEK_HOUR 4
-#define Y_SLEEK_MIN 52
-#define Y_SLEEK_SEC 100
-#define Y_SLEEK_DATE 155
+#define Y_SLEEK_HOUR 6
+#define Y_SLEEK_MIN 54
+#define Y_SLEEK_SEC 102
+#define Y_SLEEK_DATE 157
 
 #define X_CENTRE 64
 
@@ -84,17 +85,22 @@ void drawTallStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
 void drawSleekStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
                            const char *str, uint16_t color) {
   int len = strlen(str);
+
+  // Find max digit width to ensure monospaced alignment
+  int max_digit_w = 0;
+  for (int i = 0; i <= 9; i++) {
+    if (sleek_digit_widths[i] > max_digit_w)
+      max_digit_w = sleek_digit_widths[i];
+  }
+  int colon_w = sleek_digit_widths[10];
+
   int total_w = 0;
   for (int i = 0; i < len; i++) {
-    int idx = -1;
-    if (str[i] >= '0' && str[i] <= '9')
-      idx = str[i] - '0';
-    else if (str[i] == ':')
-      idx = 10;
-    if (idx >= 0)
-      total_w += sleek_digit_widths[idx] + 2; // 2px letter spacing
-    else if (str[i] == ' ')
-      total_w += sleek_digit_widths[10] + 2;
+    if (str[i] >= '0' && str[i] <= '9') {
+      total_w += max_digit_w + 2; // 2px letter spacing
+    } else if (str[i] == ':' || str[i] == ' ') {
+      total_w += colon_w + 2;
+    }
   }
   if (total_w > 0)
     total_w -= 2;
@@ -105,25 +111,33 @@ void drawSleekStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
   int curr_x = start_x;
   for (int i = 0; i < len; i++) {
     int idx = -1;
-    if (str[i] >= '0' && str[i] <= '9')
+    bool is_digit = false;
+
+    if (str[i] >= '0' && str[i] <= '9') {
       idx = str[i] - '0';
-    else if (str[i] == ':')
+      is_digit = true;
+    } else if (str[i] == ':') {
       idx = 10;
+    }
 
     if (idx >= 0) {
       int w = sleek_digit_widths[idx];
       int bytes_per_row = (w + 7) / 8;
       const uint8_t *bmp = sleek_digits + sleek_digit_offsets[idx];
+
+      int slot_w = is_digit ? max_digit_w : colon_w;
+      int x_offset = (slot_w - w) / 2;
+
       for (int y = 0; y < SLEEK_DIGIT_H; y++) {
         for (int x = 0; x < w; x++) {
           if (bmp[y * bytes_per_row + x / 8] & (1 << (7 - (x % 8)))) {
-            spr.drawPixel(curr_x + x, start_y + y, color);
+            spr.drawPixel(curr_x + x_offset + x, start_y + y, color);
           }
         }
       }
-      curr_x += w + 2;
+      curr_x += slot_w + 2;
     } else if (str[i] == ' ') {
-      curr_x += sleek_digit_widths[10] + 2;
+      curr_x += colon_w + 2;
     }
   }
 }
@@ -219,7 +233,9 @@ void ClockScreen::drawBackground(TFT_eSPI &tft) {
     }
   } else {
     // Sleek Modern: flat very-dark-grey
-    tft.fillScreen(0x1082); // ~#121212 in RGB565
+    tft.fillScreen(COL_SLEEK_BG);
+    tft.drawRoundRect(0, 0, 128, 160, 8, COL_SLEEK_BORDER);
+    tft.drawRoundRect(1, 1, 126, 158, 7, COL_SLEEK_BORDER);
   }
 }
 
@@ -269,26 +285,26 @@ void ClockScreen::draw(TFT_eSPI &tft) {
 
       TFT_eSprite sprH = TFT_eSprite(&tft);
       sprH.setColorDepth(16);
-      sprH.createSprite(128, box_h);
+      sprH.createSprite(124, box_h);
       sprH.fillSprite(bgCol);
-      drawSleekStringSprite(sprH, 128, box_h, bufH, COL_SLEEK_HOURS);
-      sprH.pushSprite(0, Y_SLEEK_HOUR);
+      drawSleekStringSprite(sprH, 124, box_h, bufH, COL_SLEEK_HOURS);
+      sprH.pushSprite(2, Y_SLEEK_HOUR);
       sprH.deleteSprite();
 
       TFT_eSprite sprM = TFT_eSprite(&tft);
       sprM.setColorDepth(16);
-      sprM.createSprite(128, box_h);
+      sprM.createSprite(124, box_h);
       sprM.fillSprite(bgCol);
-      drawSleekStringSprite(sprM, 128, box_h, bufM, COL_SLEEK_MINS);
-      sprM.pushSprite(0, Y_SLEEK_MIN);
+      drawSleekStringSprite(sprM, 124, box_h, bufM, COL_SLEEK_MINS);
+      sprM.pushSprite(2, Y_SLEEK_MIN);
       sprM.deleteSprite();
 
       TFT_eSprite sprS = TFT_eSprite(&tft);
       sprS.setColorDepth(16);
-      sprS.createSprite(128, box_h);
+      sprS.createSprite(124, box_h);
       sprS.fillSprite(bgCol);
-      drawSleekStringSprite(sprS, 128, box_h, bufS, COL_SLEEK_SECS);
-      sprS.pushSprite(0, Y_SLEEK_SEC);
+      drawSleekStringSprite(sprS, 124, box_h, bufS, COL_SLEEK_SECS);
+      sprS.pushSprite(2, Y_SLEEK_SEC);
       sprS.deleteSprite();
     }
 
@@ -325,26 +341,26 @@ void ClockScreen::draw(TFT_eSPI &tft) {
 
       TFT_eSprite sprH = TFT_eSprite(&tft);
       sprH.setColorDepth(16);
-      sprH.createSprite(128, box_h);
+      sprH.createSprite(124, box_h);
       sprH.fillSprite(bgCol);
-      drawSleekStringSprite(sprH, 128, box_h, bufH, COL_SLEEK_HOURS);
-      sprH.pushSprite(0, Y_SLEEK_HOUR);
+      drawSleekStringSprite(sprH, 124, box_h, bufH, COL_SLEEK_HOURS);
+      sprH.pushSprite(2, Y_SLEEK_HOUR);
       sprH.deleteSprite();
 
       TFT_eSprite sprM = TFT_eSprite(&tft);
       sprM.setColorDepth(16);
-      sprM.createSprite(128, box_h);
+      sprM.createSprite(124, box_h);
       sprM.fillSprite(bgCol);
-      drawSleekStringSprite(sprM, 128, box_h, bufM, COL_SLEEK_MINS);
-      sprM.pushSprite(0, Y_SLEEK_MIN);
+      drawSleekStringSprite(sprM, 124, box_h, bufM, COL_SLEEK_MINS);
+      sprM.pushSprite(2, Y_SLEEK_MIN);
       sprM.deleteSprite();
 
       TFT_eSprite sprS = TFT_eSprite(&tft);
       sprS.setColorDepth(16);
-      sprS.createSprite(128, box_h);
+      sprS.createSprite(124, box_h);
       sprS.fillSprite(bgCol);
-      drawSleekStringSprite(sprS, 128, box_h, bufS, COL_SLEEK_SECS);
-      sprS.pushSprite(0, Y_SLEEK_SEC);
+      drawSleekStringSprite(sprS, 124, box_h, bufS, COL_SLEEK_SECS);
+      sprS.pushSprite(2, Y_SLEEK_SEC);
       sprS.deleteSprite();
     }
     _needsTimeRedraw = false;
