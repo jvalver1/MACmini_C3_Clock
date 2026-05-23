@@ -145,20 +145,24 @@ void loop() {
       Serial.println("[NAV] Splash finished -> Clock screen");
     }
   } else {
-    // Normal navigation for all other screens
-    if (inputState.joyRight == ButtonEvent::SHORT_PRESS) {
-      screenManager->nextScreen();
-      Serial.println("[NAV] JoyRight SHORT -> Next Screen");
-    } else if (inputState.joyLeft == ButtonEvent::SHORT_PRESS) {
-      screenManager->prevScreen();
-      Serial.println("[NAV] JoyLeft SHORT -> Prev Screen");
-    } else if (inputState.joyCenter == ButtonEvent::LONG_PRESS) {
-      screenManager->setScreen(ScreenType::SETUP);
-      Serial.println("[NAV] JoyCenter LONG -> Setup");
-    } else {
-      // Only forward input to the screen when NOT navigating,
-      // to prevent the press from leaking into the new screen
+    // When on SETUP screen, forward ALL input to the screen
+    // (left/right are used for back navigation within setup)
+    bool isSetup = (screenManager->getCurrentType() == ScreenType::SETUP);
+
+    if (isSetup) {
       screenManager->handleInput(inputState);
+    } else {
+      // Normal carousel navigation for non-setup screens
+      if (inputState.joyRight == ButtonEvent::SHORT_PRESS) {
+        screenManager->nextScreen();
+        Serial.println("[NAV] JoyRight SHORT -> Next Screen");
+      } else if (inputState.joyLeft == ButtonEvent::SHORT_PRESS) {
+        screenManager->prevScreen();
+        Serial.println("[NAV] JoyLeft SHORT -> Prev Screen");
+      } else {
+        // Only forward input to the screen when NOT navigating
+        screenManager->handleInput(inputState);
+      }
     }
     screenManager->update();
   }

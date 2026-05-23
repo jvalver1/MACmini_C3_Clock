@@ -28,6 +28,7 @@ public:
   // Connectivity
   bool connect();
   bool syncTime();
+  int scanNetworks(String results[], int maxCount);
 
   // API Fetches
   bool fetchWeather(String &city, float &temp, String &desc);

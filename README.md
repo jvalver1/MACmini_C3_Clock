@@ -6,18 +6,19 @@ A feature-rich desktop clock and environmental station built on the **ESP32-C3**
 
 ## ✨ Features
 
-| Screen          | Description                                                                                                                                                                             |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Clock**       | Displays current time and date sourced from the DS3231 RTC. Time is synchronised via NTP on every boot when WiFi is available.                                                          |
-| **Environment** | Live temperature, humidity, and barometric pressure readings from the BME280 sensor, refreshed periodically.                                                                            |
-| **Weather**     | Dual-mode weather information: **online** forecasts via a weather API when connected, or **offline** local trend prediction using the Zambretti algorithm based on barometric pressure. |
-| **Moon Phase**  | Calculates and displays the current lunar phase, illumination percentage, and moon age using an astronomical algorithm — no internet required.                                          |
-| **Setup**       | On-device configuration menu with an on-screen keyboard for entering WiFi SSID, password, and city name. Settings are persisted in flash memory (Preferences).                          |
+| Screen          | Description                                                                                                                                                                                                                                          |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Clock**       | Displays current time and date sourced from the DS3231 RTC. Time is synchronised via NTP on every boot when WiFi is available.                                                                                                                       |
+| **Environment** | Live temperature, humidity, and barometric pressure readings from the BME280 sensor, refreshed periodically.                                                                                                                                         |
+| **Weather**     | Dual-mode weather information: **online** forecasts via a weather API when connected, or **offline** local trend prediction using the Zambretti algorithm based on barometric pressure.                                                              |
+| **Moon Phase**  | Calculates and displays the current lunar phase, illumination percentage, and moon age using an astronomical algorithm — no internet required.                                                                                                       |
+| **Setup**       | Two-level on-device configuration menu. Top level offers WiFi Setup, Set Time, and Set Date. WiFi Setup includes a network scanner for SSID selection, password entry, and city configuration. Settings are persisted in flash memory (Preferences). |
 
 ### Additional Capabilities
 
 - **NTP Time Sync** — Automatically synchronises the RTC with `pool.ntp.org` at startup.
 - **Persistent Configuration** — WiFi credentials and city are stored in ESP32 flash (NVS) and survive reboots.
+- **WiFi Network Scanner** — On-device discovery of nearby WiFi networks; select from the scanned list or enter manually.
 - **Zambretti Weather Prediction** — Offline barometric weather forecasting algorithm for when WiFi is unavailable.
 - **Modular Architecture** — Clean separation of concerns: Hardware, Input, Network, Screen, and Display layers.
 
@@ -58,13 +59,13 @@ A feature-rich desktop clock and environmental station built on the **ESP32-C3**
 
 #### 5-Way Joystick Switch
 
-| Direction    | GPIO   | Notes                                    |
-| ------------ | ------ | ---------------------------------------- |
-| Up           | **0**  |                                          |
-| Down         | **5**  |                                          |
-| Left         | **10** |                                          |
-| Right        | **20** | Short press = next screen                |
-| Centre Click | **21** | Short press = select, Long press = Setup |
+| Direction    | GPIO   | Notes                     |
+| ------------ | ------ | ------------------------- |
+| Up           | **0**  |                           |
+| Down         | **5**  |                           |
+| Left         | **10** |                           |
+| Right        | **20** | Short press = next screen |
+| Centre Click | **21** | Short press = select      |
 
 ---
 
@@ -112,14 +113,14 @@ MACmini_C3_Clock/
 │   │
 │   ├── HardwareManager.*   # BME280 + DS3231 initialisation & readings
 │   ├── InputManager.*      # Joystick debouncing with short/long press
-│   ├── NetworkManager.*    # WiFi, NTP sync, API calls & Preferences storage
-│   ├── ScreenManager.*     # Screen lifecycle, navigation (next/prev)
+│   ├── NetworkManager.*    # WiFi, NTP sync, WiFi scan, API calls & Preferences storage
+│   ├── ScreenManager.*     # Screen lifecycle, carousel navigation (next/prev incl. Setup)
 │   │
 │   ├── ClockScreen.*       # Time & date display
 │   ├── EnvScreen.*         # Temperature, humidity & pressure display
 │   ├── WeatherScreen.*     # Online forecast + Zambretti offline prediction
 │   ├── MoonScreen.*        # Lunar phase display
-│   ├── SetupScreen.*       # On-device WiFi & city configuration
+│   ├── SetupScreen.*       # Two-level on-device configuration (WiFi scan, keyboard entry)
 │   │
 │   ├── KeyboardView.*      # On-screen keyboard (lower/upper/symbols)
 │   ├── Zambretti.h         # Zambretti barometric forecasting algorithm
@@ -167,7 +168,7 @@ Edit `include/config.h` before building:
 #define DAYLIGHT_OFFSET_SEC 0  // e.g. 3600 for summer time
 ```
 
-> Alternatively, use the **Setup screen** on the device to enter WiFi credentials and city — these are stored persistently and override the compile-time defaults.
+> Alternatively, use the **Setup screen** on the device to scan for WiFi networks and enter credentials — these are stored persistently and override the compile-time defaults.
 
 ---
 
@@ -185,15 +186,34 @@ Edit `include/config.h` before building:
 
 ## 🧭 Navigation
 
+Screen order: **Splash → Clock → Environment → Weather → Moon → Setup** (wraps around to Clock). Splash is only shown on boot.
+
 | Input                           | Action                   |
 | ------------------------------- | ------------------------ |
 | **Joystick right** short press  | Cycle to next screen     |
 | **Joystick left** short press   | Cycle to previous screen |
-| **Joystick centre** long press  | Enter Setup screen       |
 | **Joystick centre** short press | Select item / character  |
-| **Joystick up / down**          | Navigate menus in Setup  |
+| **Joystick up / down**          | Navigate menus           |
 
-Screen order: **Splash → Clock → Environment → Weather → Moon** (wraps around). Setup is accessed via centre long press only.
+### Setup Screen Flow
+
+The Setup screen is reached by cycling through the carousel (right past Moon, or left from Clock).
+
+```
+Top Menu                  WiFi Sub-Menu              SSID List
+┌──────────────┐          ┌──────────────┐           ┌──────────────┐
+│ > WiFi Setup │─Click──▶ │ > SSID       │──Click──▶ │  NetworkA    │
+│   Set Time   │          │   Password   │           │  NetworkB    │
+│   Set Date   │          │   City       │           │ > NetworkC   │
+└──────────────┘          │   SAVE&REBOOT│           │  [Manual]    │
+       ▲                  └──────────────┘           └──────────────┘
+       │                         ▲                          │
+       └───Left──────────────────┘───────Left───────────────┘
+```
+
+- **WiFi Setup**: Scan nearby networks, select an SSID (or enter manually), type password and city via on-screen keyboard, then save & reboot.
+- **Set Time**: _(Coming soon)_ — placeholder for manual time adjustment.
+- **Set Date**: _(Coming soon)_ — placeholder for manual date setting.
 
 ### On-Screen Keyboard Controls
 

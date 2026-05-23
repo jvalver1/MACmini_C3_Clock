@@ -111,3 +111,18 @@ bool NetworkManager::fetchWeather(String &city, float &temp, String &desc) {
   // Placeholder for actual Weather API call
   return false;
 }
+
+int NetworkManager::scanNetworks(String results[], int maxCount) {
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_STA);
+  Serial.println("[NET] Starting WiFi scan...");
+  int found = WiFi.scanNetworks();
+  Serial.printf("[NET] Scan found %d networks\n", found);
+
+  int count = min(found, maxCount);
+  for (int i = 0; i < count; i++) {
+    results[i] = WiFi.SSID(i);
+  }
+  WiFi.scanDelete();
+  return count;
+}

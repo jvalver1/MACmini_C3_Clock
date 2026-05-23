@@ -86,13 +86,12 @@ void ScreenManager::handleInput(const ControlState &state) {
 }
 
 void ScreenManager::nextScreen() {
-  // Cycle through display screens: CLOCK -> ENV -> WEATHER -> MOON -> CLOCK
-  // SPLASH is only shown at boot; SETUP is only accessed via long press
+  // Cycle: CLOCK -> ENV -> WEATHER -> MOON -> SETUP -> CLOCK
   int next = (int)currentType + 1;
-  if (next >= (int)ScreenType::SETUP) {
+  if (next >= (int)ScreenType::COUNT) {
     next = (int)ScreenType::CLOCK; // Wrap back to CLOCK
   }
-  // Skip SPLASH if somehow we land on it (shouldn't happen, but guard)
+  // Skip SPLASH (boot-only)
   if (next == (int)ScreenType::SPLASH) {
     next = (int)ScreenType::CLOCK;
   }
@@ -101,11 +100,10 @@ void ScreenManager::nextScreen() {
 }
 
 void ScreenManager::prevScreen() {
-  // Cycle backwards through display screens: CLOCK <- ENV <- WEATHER <- MOON <-
-  // CLOCK SPLASH is only shown at boot; SETUP is only accessed via long press
+  // Cycle backwards: CLOCK <- ENV <- WEATHER <- MOON <- SETUP <- CLOCK
   int prev = (int)currentType - 1;
   if (prev <= (int)ScreenType::SPLASH) {
-    prev = (int)ScreenType::MOON; // Wrap to last display screen
+    prev = (int)ScreenType::SETUP; // Wrap to last screen (SETUP)
   }
   Serial.printf("[SCR] prevScreen: %d -> %d\n", (int)currentType, prev);
   setScreen((ScreenType)prev);
