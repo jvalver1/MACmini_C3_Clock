@@ -2,6 +2,7 @@
 #define NETWORK_MANAGER_H
 
 #include "HardwareManager.h"
+#include "SystemStatus.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
@@ -32,6 +33,7 @@ public:
 
   // API Fetches
   bool fetchWeather(String &city, float &temp, String &desc);
+  bool fetchWeather(WeatherData &weather);
   bool geocode(String city, float &lat, float &lon);
 
 private:

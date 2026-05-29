@@ -3,6 +3,7 @@
 
 #include "Icons.h"
 #include "ScreenManager.h"
+#include "SystemStatus.h"
 #include "Zambretti.h"
 
 
@@ -19,12 +20,12 @@ private:
   NetworkManager &_net;
 
   // Data
-  float _apiTemp;
-  String _apiDesc;
+  WeatherData _weather;
   WeatherForecast _localForecast;
 
   unsigned long _lastUpdate;
   bool _online;
+  bool _apiValid;
   bool _needsRedraw;
 };
 

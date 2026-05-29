@@ -2,7 +2,6 @@
 #include "HolisticaImg.h"
 #include "LogoImg.h"
 #include "MontykonaImg.h"
-#include <pgmspace.h>
 
 // Display dimensions
 #define SCREEN_W 128
@@ -50,11 +49,9 @@ void SplashScreen::drawLogoWithText(TFT_eSPI &tft) {
 
 void SplashScreen::drawImage(TFT_eSPI &tft, const uint16_t *img) {
   tft.setSwapBytes(true);
-  uint16_t lineBuf[SCREEN_W];
-  for (int y = 0; y < SCREEN_H; y++) {
-    memcpy_P(lineBuf, &img[y * SCREEN_W], SCREEN_W * sizeof(uint16_t));
-    tft.pushImage(0, y, SCREEN_W, 1, lineBuf);
-  }
+  // On ESP32, all const data is memory-mapped into Flash data space,
+  // enabling direct pointer reads. Draw the entire image at once.
+  tft.pushImage(0, 0, SCREEN_W, SCREEN_H, img);
   tft.setSwapBytes(false);
 }
 
@@ -211,7 +208,7 @@ void SplashScreen::transHorizontalWipe(TFT_eSPI &tft) {
     return;
   uint16_t colBuf[SCREEN_H];
   for (int y = 0; y < SCREEN_H; y++) {
-    colBuf[y] = pgm_read_word(&_nextImg[y * SCREEN_W + x]);
+    colBuf[y] = _nextImg[y * SCREEN_W + x];
   }
   tft.pushImage(x, 0, 1, SCREEN_H, colBuf);
 }
@@ -228,7 +225,7 @@ void SplashScreen::transVerticalBlinds(TFT_eSPI &tft) {
     if (x >= SCREEN_W)
       continue;
     for (int y = 0; y < SCREEN_H; y++) {
-      colBuf[y] = pgm_read_word(&_nextImg[y * SCREEN_W + x]);
+      colBuf[y] = _nextImg[y * SCREEN_W + x];
     }
     tft.pushImage(x, 0, 1, SCREEN_H, colBuf);
   }
@@ -251,8 +248,7 @@ void SplashScreen::transDissolve(TFT_eSPI &tft) {
       for (int dx = 0; dx < blockW; dx++) {
         int srcY = by + dy, srcX = bx + dx;
         if (srcX < SCREEN_W && srcY < SCREEN_H) {
-          blockBuf[dy * blockW + dx] =
-              pgm_read_word(&_nextImg[srcY * SCREEN_W + srcX]);
+          blockBuf[dy * blockW + dx] = _nextImg[srcY * SCREEN_W + srcX];
         }
       }
     }
@@ -281,7 +277,7 @@ void SplashScreen::transCircleReveal(TFT_eSPI &tft) {
       float dx = (float)(x - cx);
       float dist2 = dx * dx + dy2;
       if (dist2 <= r2 && dist2 > rPrev2) {
-        lineBuf[x] = pgm_read_word(&_nextImg[y * SCREEN_W + x]);
+        lineBuf[x] = _nextImg[y * SCREEN_W + x];
         if (x < xStart)
           xStart = x;
         if (x > xEnd)
@@ -304,7 +300,7 @@ void SplashScreen::transDiagonalWipe(TFT_eSPI &tft) {
     for (int y = 0; y < SCREEN_H; y++) {
       int x = d - y;
       if (x >= 0 && x < SCREEN_W) {
-        pixel = pgm_read_word(&_nextImg[y * SCREEN_W + x]);
+        pixel = _nextImg[y * SCREEN_W + x];
         tft.pushImage(x, y, 1, 1, &pixel);
       }
     }
@@ -328,8 +324,7 @@ void SplashScreen::transCheckerboard(TFT_eSPI &tft) {
       for (int dx = 0; dx < tileW; dx++) {
         int srcX = tx + dx, srcY = ty + dy;
         if (srcX < SCREEN_W && srcY < SCREEN_H) {
-          tileBuf[dy * tileW + dx] =
-              pgm_read_word(&_nextImg[srcY * SCREEN_W + srcX]);
+          tileBuf[dy * tileW + dx] = _nextImg[srcY * SCREEN_W + srcX];
         }
       }
     }

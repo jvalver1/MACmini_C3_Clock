@@ -23,6 +23,7 @@ public:
   void update(unsigned long now) override;
   void draw(TFT_eSPI &tft) override;
   void handleInput(const ControlState &state) override;
+  bool isAtTopMenu() const { return _state == SetupState::TOP_MENU; }
 
 private:
   TFT_eSPI &_tft;

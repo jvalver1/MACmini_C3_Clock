@@ -2,9 +2,12 @@
 #include "InputManager.h"
 #include "NetworkManager.h"
 #include "ScreenManager.h"
+#include "SetupScreen.h"
 #include "SplashScreen.h"
+#include "SystemStatus.h"
 #include <Arduino.h>
 #include <TFT_eSPI.h>
+#include <WiFi.h>
 
 // Global instances
 TFT_eSPI tft = TFT_eSPI();
@@ -12,6 +15,19 @@ HardwareManager hw;
 InputManager input;
 NetworkManager net(hw);
 ScreenManager *screenManager;
+
+// Global sync primitives and variables definitions
+SemaphoreHandle_t xStatusMutex = NULL;
+QueueHandle_t xQueueInputEvents = NULL;
+SystemStatus sysStatus;
+
+// Task Function Declarations
+void vUITask(void *pvParameters);
+void vSensorInputTask(void *pvParameters);
+void vNetworkTask(void *pvParameters);
+void switchFromSplashWhenFinished();
+
+constexpr unsigned long ENV_SENSOR_READ_INTERVAL_MS = 5UL * 60UL * 1000UL;
 
 void setup() {
   // ESP32-C3 USB CDC — wait for the host to connect
@@ -32,6 +48,14 @@ void setup() {
   Serial.printf("[BOOT] Free heap: %u bytes\n", ESP.getFreeHeap());
   Serial.println("========================================");
   Serial.flush();
+
+  // Create FreeRTOS synchronization primitives BEFORE starting tasks
+  xStatusMutex = xSemaphoreCreateMutex();
+  xQueueInputEvents = xQueueCreate(10, sizeof(ControlState));
+  if (xStatusMutex == NULL || xQueueInputEvents == NULL) {
+    Serial.println("[BOOT] FATAL ERROR: Failed to create FreeRTOS primitives!");
+    while (1) { delay(1000); }
+  }
 
   // Initialize Hardware (I2C sensors)
   Serial.println("[BOOT] Initializing hardware (I2C)...");
@@ -54,40 +78,22 @@ void setup() {
   Serial.println("[BOOT] Network ready.");
   Serial.flush();
 
-  // Attempt connectivity at boot
-  Serial.println("[BOOT] Attempting WiFi connection...");
-  Serial.flush();
-  if (net.connect()) {
-    Serial.println("[BOOT] WiFi CONNECTED!");
-    Serial.printf("[BOOT] IP: %s\n", WiFi.localIP().toString().c_str());
-    Serial.println("[BOOT] Syncing NTP time...");
-    bool ntpOk = net.syncTime();
-    if (ntpOk) {
-      Serial.println("[BOOT] Time source: NTP -> RTC updated.");
-    } else {
-      Serial.println("[BOOT] NTP sync failed, using existing RTC time.");
-    }
-  } else {
-    Serial.println(
-        "[BOOT] WiFi connection FAILED (offline mode, using RTC time).");
+  // Pre-populate System Status with initial readings
+  if (xSemaphoreTake(xStatusMutex, portMAX_DELAY) == pdTRUE) {
+    sysStatus.currentTime = hw.getCurrentTime();
+    sysStatus.envData = hw.getEnvironmentalData();
+    sysStatus.wifiConnected = false;
+    sysStatus.ntpSynced = false;
+    sysStatus.weatherDesc = "";
+    sysStatus.weatherTemp = 0.0f;
+    sysStatus.weather = WeatherData();
+    sysStatus.weatherValid = false;
+    sysStatus.batteryVoltage = hw.getBatteryVoltage();
+    xSemaphoreGive(xStatusMutex);
   }
-  // Log current time regardless of source
-  DateTime bootTime = hw.getCurrentTime();
-  Serial.printf("[BOOT] Current time: %04d-%02d-%02d %02d:%02d:%02d\n",
-                bootTime.year(), bootTime.month(), bootTime.day(),
-                bootTime.hour(), bootTime.minute(), bootTime.second());
-  Serial.flush();
 
   // Initialize TFT
   Serial.println("[BOOT] Initializing TFT display...");
-#ifdef CONFIG_IDF_TARGET_ESP32C3
-  Serial.println("[BOOT] Target: ESP32-C3 (FSPI expected)");
-#else
-  Serial.println("[BOOT] WARNING: ESP32-C3 NOT detected by IDF!");
-#endif
-#ifdef USE_FSPI_PORT
-  Serial.println("[BOOT] USE_FSPI_PORT is set");
-#endif
   Serial.flush();
   tft.init();
   Serial.printf("[BOOT] TFT initialized. Width=%d, Height=%d\n", tft.width(),
@@ -98,11 +104,11 @@ void setup() {
 
   // --- TFT TEST PATTERN ---
   tft.fillScreen(TFT_RED);
-  delay(400);
+  delay(200);
   tft.fillScreen(TFT_GREEN);
-  delay(400);
+  delay(200);
   tft.fillScreen(TFT_BLUE);
-  delay(400);
+  delay(200);
   tft.fillScreen(TFT_BLACK);
   Serial.println("[BOOT] Test pattern done.");
   Serial.flush();
@@ -111,69 +117,206 @@ void setup() {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextDatum(MC_DATUM);
   tft.drawString("Booting...", 64, 80, 4);
-  delay(500);
+  delay(300);
 
   // Initialize Screen Manager
   Serial.println("[BOOT] Creating ScreenManager...");
   Serial.flush();
   screenManager = new ScreenManager(tft, hw, net);
-  Serial.println("[BOOT] Setup COMPLETE. Entering main loop.");
-  Serial.flush();
 
-  Serial.println("[BOOT] Boot finished successfully.");
+  // Launch FreeRTOS Tasks
+  Serial.println("[BOOT] Spawning FreeRTOS tasks...");
+  xTaskCreatePinnedToCore(vUITask, "UITask", 8192, NULL, 5, NULL, 0);
+  xTaskCreatePinnedToCore(vSensorInputTask, "SensorInputTask", 2048, NULL, 6, NULL, 0);
+  xTaskCreatePinnedToCore(vNetworkTask, "NetworkTask", 8192, NULL, 3, NULL, 0);
+
+  Serial.println("[BOOT] Setup COMPLETE. Entering scheduler.");
+  Serial.flush();
 }
 
-unsigned long lastLoopLog = 0;
-
 void loop() {
-  ControlState inputState = input.update();
+  // Bypassed: All CPU execution runs inside FreeRTOS tasks.
+  // Yield the main loop forever to conserve CPU cycle scheduler overhead.
+  vTaskDelay(portMAX_DELAY);
+}
 
-  // Check if splash screen is active
-  bool isSplash = (screenManager->getCurrentType() == ScreenType::SPLASH);
+// ─── Task 1: UI & Render Task (Priority 5) ──────────────────────────────────
+void vUITask(void *pvParameters) {
+  Serial.println("[TASK] UI & Render task started.");
+  
+  while (true) {
+    ControlState inputState;
+    // Set default empty events
+    inputState.joyUp = ButtonEvent::NONE;
+    inputState.joyDown = ButtonEvent::NONE;
+    inputState.joyLeft = ButtonEvent::NONE;
+    inputState.joyRight = ButtonEvent::NONE;
+    inputState.joyCenter = ButtonEvent::NONE;
 
-  if (isSplash) {
-    SplashScreen *splash =
-        static_cast<SplashScreen *>(screenManager->getCurrentScreen());
+    // Blockingly wait up to 20ms for input events from the Sensor/Input task
+    if (xQueueReceive(xQueueInputEvents, &inputState, pdMS_TO_TICKS(20)) == pdTRUE) {
+      bool isSplash = (screenManager->getCurrentType() == ScreenType::SPLASH);
 
-    // Splash screen handles joyCenter internally for transitions
-    screenManager->handleInput(inputState);
-    screenManager->update();
-
-    // Once splash signals finished, go directly to Clock screen
-    if (splash->isFinished()) {
-      screenManager->setScreen(ScreenType::CLOCK);
-      Serial.println("[NAV] Splash finished -> Clock screen");
-    }
-  } else {
-    // When on SETUP screen, forward ALL input to the screen
-    // (left/right are used for back navigation within setup)
-    bool isSetup = (screenManager->getCurrentType() == ScreenType::SETUP);
-
-    if (isSetup) {
-      screenManager->handleInput(inputState);
-    } else {
-      // Normal carousel navigation for non-setup screens
-      if (inputState.joyRight == ButtonEvent::SHORT_PRESS) {
-        screenManager->nextScreen();
-        Serial.println("[NAV] JoyRight SHORT -> Next Screen");
-      } else if (inputState.joyLeft == ButtonEvent::SHORT_PRESS) {
-        screenManager->prevScreen();
-        Serial.println("[NAV] JoyLeft SHORT -> Prev Screen");
-      } else {
-        // Only forward input to the screen when NOT navigating
+      if (isSplash) {
         screenManager->handleInput(inputState);
+        screenManager->update();
+        switchFromSplashWhenFinished();
+      } else {
+        bool isSetup = (screenManager->getCurrentType() == ScreenType::SETUP);
+
+        if (isSetup) {
+          SetupScreen *setup =
+              static_cast<SetupScreen *>(screenManager->getCurrentScreen());
+          if (setup->isAtTopMenu() &&
+              inputState.joyLeft == ButtonEvent::SHORT_PRESS) {
+            screenManager->prevScreen();
+            Serial.println("[NAV] Setup TOP JoyLeft SHORT -> Prev Screen");
+          } else {
+            screenManager->handleInput(inputState);
+          }
+        } else {
+          if (inputState.joyRight == ButtonEvent::SHORT_PRESS) {
+            screenManager->nextScreen();
+            Serial.println("[NAV] JoyRight SHORT -> Next Screen");
+          } else if (inputState.joyLeft == ButtonEvent::SHORT_PRESS) {
+            screenManager->prevScreen();
+            Serial.println("[NAV] JoyLeft SHORT -> Prev Screen");
+          } else {
+            screenManager->handleInput(inputState);
+          }
+        }
+        screenManager->update();
       }
+    } else {
+      // Timeout triggered (no buttons pressed) -> run tick animations/seconds update
+      screenManager->update();
+      switchFromSplashWhenFinished();
     }
-    screenManager->update();
+  }
+}
+
+void switchFromSplashWhenFinished() {
+  if (screenManager->getCurrentType() != ScreenType::SPLASH) {
+    return;
   }
 
-  // Heartbeat every 3 seconds for debugging
-  unsigned long now = millis();
-  if (now - lastLoopLog > 3000) {
-    Serial.printf("[LOOP] t=%lus heap=%u\n", now / 1000, ESP.getFreeHeap());
-    Serial.flush();
-    lastLoopLog = now;
+  SplashScreen *splash =
+      static_cast<SplashScreen *>(screenManager->getCurrentScreen());
+  if (splash->isFinished()) {
+    screenManager->setScreen(ScreenType::CLOCK);
+    Serial.println("[NAV] Splash finished -> Clock screen");
+  }
+}
+
+// ─── Task 2: Sensor & Input Task (Priority 6) ────────────────────────────────
+void vSensorInputTask(void *pvParameters) {
+  Serial.println("[TASK] Sensor & Input task started.");
+  unsigned long lastSensorRead = 0;
+
+  while (true) {
+    // 1. Poll joystick switches
+    ControlState inputState = input.update();
+    bool hasEvent = (inputState.joyUp != ButtonEvent::NONE ||
+                     inputState.joyDown != ButtonEvent::NONE ||
+                     inputState.joyLeft != ButtonEvent::NONE ||
+                     inputState.joyRight != ButtonEvent::NONE ||
+                     inputState.joyCenter != ButtonEvent::NONE);
+    if (hasEvent) {
+      xQueueSend(xQueueInputEvents, &inputState, 0);
+    }
+
+    // 2. Poll RTC Time (every 100ms for sub-second precision on page redraws)
+    DateTime nowTime = hw.getCurrentTime();
+
+    // 3. Poll environmental BME280 sensor (every 5 minutes)
+    unsigned long nowMs = millis();
+    bool readSensors =
+        (nowMs - lastSensorRead >= ENV_SENSOR_READ_INTERVAL_MS ||
+         lastSensorRead == 0);
+    EnvironmentalData env = {0, 0, 0, false};
+    if (readSensors) {
+      env = hw.getEnvironmentalData();
+      lastSensorRead = nowMs;
+    }
+
+    // Write to shared memory under mutex lock
+    if (xStatusMutex != NULL && xSemaphoreTake(xStatusMutex, portMAX_DELAY) == pdTRUE) {
+      sysStatus.currentTime = nowTime;
+      if (readSensors && env.valid) {
+        sysStatus.envData = env;
+      }
+      sysStatus.batteryVoltage = hw.getBatteryVoltage();
+      xSemaphoreGive(xStatusMutex);
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(20)); // Yield to run at 50Hz polling rate
+  }
+}
+
+// ─── Task 3: Background Network Task (Priority 3) ───────────────────────────
+void vNetworkTask(void *pvParameters) {
+  Serial.println("[TASK] Asynchronous background Network task started.");
+
+  // Attempt initial network connection asynchronously
+  Serial.println("[TASK] Network: Connecting WiFi...");
+  bool connected = net.connect();
+  
+  if (xStatusMutex != NULL && xSemaphoreTake(xStatusMutex, portMAX_DELAY) == pdTRUE) {
+    sysStatus.wifiConnected = connected;
+    xSemaphoreGive(xStatusMutex);
   }
 
-  delay(10);
+  if (connected) {
+    Serial.println("[TASK] Network: WiFi connected, syncing NTP time...");
+    bool synced = net.syncTime();
+    if (xStatusMutex != NULL && xSemaphoreTake(xStatusMutex, portMAX_DELAY) == pdTRUE) {
+      sysStatus.ntpSynced = synced;
+      xSemaphoreGive(xStatusMutex);
+    }
+  }
+
+  unsigned long lastWeatherFetch = 0;
+  const unsigned long weatherIntervalMs = 10UL * 60UL * 1000UL;
+  const unsigned long weatherRetryMs = 60UL * 1000UL;
+
+  while (true) {
+    // Keep WiFi connection alive
+    bool currentlyConnected = (WiFi.status() == WL_CONNECTED);
+    if (!currentlyConnected) {
+      Serial.println("[TASK] Network: WiFi connection lost, reconnecting...");
+      currentlyConnected = net.connect();
+    }
+
+    if (xStatusMutex != NULL && xSemaphoreTake(xStatusMutex, portMAX_DELAY) == pdTRUE) {
+      sysStatus.wifiConnected = currentlyConnected;
+      xSemaphoreGive(xStatusMutex);
+    }
+
+    // Fetch weather updates from API (every 10 minutes)
+    unsigned long nowMs = millis();
+    if (currentlyConnected &&
+        (nowMs - lastWeatherFetch >= weatherIntervalMs ||
+         lastWeatherFetch == 0)) {
+      WeatherData weather;
+      Serial.println("[TASK] Network: Fetching weather forecast...");
+      bool weatherOk = net.fetchWeather(weather);
+
+      if (xStatusMutex != NULL && xSemaphoreTake(xStatusMutex, portMAX_DELAY) == pdTRUE) {
+        if (weatherOk) {
+          sysStatus.weather = weather;
+          sysStatus.weatherDesc = weather.description;
+          sysStatus.weatherTemp = weather.temperature;
+          sysStatus.weatherValid = true;
+        } else {
+          // Zambretti fallback handled on WeatherScreen.cpp
+          sysStatus.weatherValid = false;
+        }
+        xSemaphoreGive(xStatusMutex);
+      }
+      lastWeatherFetch =
+          weatherOk ? nowMs : nowMs - (weatherIntervalMs - weatherRetryMs);
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(5000)); // Yield to run connection diagnostics every 5 seconds
+  }
 }

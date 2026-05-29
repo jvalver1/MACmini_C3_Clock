@@ -2,3 +2,7 @@
 version = 1
 firmware = '.pio/build/esp32-c3-devkitc-02/firmware.bin'
 elf = '.pio/build/esp32-c3-devkitc-02/firmware.elf'
+
+[[chip]]
+name = 'bme280'
+binary = 'chips/bme280.chip.wasm'

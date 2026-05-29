@@ -6,6 +6,7 @@ This project includes a Wokwi setup at the repository root:
 - `wokwi.toml` points Wokwi at PlatformIO's build outputs:
   - `.pio/build/esp32-c3-devkitc-02/firmware.bin`
   - `.pio/build/esp32-c3-devkitc-02/firmware.elf`
+- `chips/bme280.chip.*` provides a local Wokwi custom chip for the BME280 I2C sensor.
 
 ## Run
 
@@ -47,11 +48,9 @@ in the simulation.
 ## Current Limits
 
 - The ST7735 is represented by the `chip-st7735` custom chip dependency.
+- The BME280 is represented by the local `chip-bme280` custom chip at I2C
+  address `0x76`. It provides fixed calibration/sample registers that let the
+  Adafruit BME280 driver initialize and read simulated environmental data.
 - The DS3231 is represented by Wokwi's `wokwi-ds1307` RTC. RTClib's basic
   `RTC_DS3231::begin()`, `now()`, and `adjust()` path works with the shared
   I2C address and compatible time registers.
-- The local Wokwi CLI v0.26.1 does not recognize or emulate `wokwi-bme280`.
-  A headless run boots, initializes the TFT and RTC, and reports
-  `BME280 NOT FOUND`. Keep the BME280 in the diagram so the circuit mirrors the
-  README wiring; use the firmware's partial hardware mode until Wokwi provides a
-  compatible BME280 I2C part in the local runtime.

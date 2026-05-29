@@ -1,5 +1,34 @@
 #include "SetupScreen.h"
 
+namespace {
+inline uint16_t HW_COLOR(uint8_t r, uint8_t g, uint8_t b) {
+  return (((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3));
+}
+
+uint16_t blendColor(uint16_t a, uint16_t b, uint8_t amount) {
+  uint8_t ar = ((a & 0x001F) << 3);
+  uint8_t ag = ((a & 0x07E0) >> 3);
+  uint8_t ab = ((a & 0xF800) >> 8);
+  uint8_t br = ((b & 0x001F) << 3);
+  uint8_t bg = ((b & 0x07E0) >> 3);
+  uint8_t bb = ((b & 0xF800) >> 8);
+
+  uint8_t r = ar + (((int)br - ar) * amount) / 255;
+  uint8_t g = ag + (((int)bg - ag) * amount) / 255;
+  uint8_t blue = ab + (((int)bb - ab) * amount) / 255;
+  return HW_COLOR(r, g, blue);
+}
+
+void drawMidnightGradient(TFT_eSPI &tft) {
+  for (int y = 0; y < 160; y++) {
+    uint8_t amount = (uint8_t)((y * 255) / 159);
+    uint16_t color =
+        blendColor(HW_COLOR(0, 2, 14), HW_COLOR(5, 18, 48), amount);
+    tft.drawFastHLine(0, y, 128, color);
+  }
+}
+} // namespace
+
 SetupScreen::SetupScreen(TFT_eSPI &tft, HardwareManager &hw,
                          NetworkManager &net)
     : _tft(tft), _hw(hw), _net(net), _kb(tft), _state(SetupState::TOP_MENU),
@@ -58,7 +87,7 @@ void SetupScreen::draw(TFT_eSPI &tft) {
   case SetupState::ENTER_PASS:
   case SetupState::ENTER_CITY:
     _kb.draw();
-    tft.setTextColor(0xC618, TFT_BLACK);
+    tft.setTextColor(0xC618);
     tft.setTextDatum(TC_DATUM);
     if (_state == SetupState::ENTER_SSID)
       tft.drawString("ENTER SSID", 64, 30, 1);
@@ -75,11 +104,11 @@ void SetupScreen::draw(TFT_eSPI &tft) {
 // ── Draw: Top Menu ──────────────────────────────────────────────────────────
 
 void SetupScreen::drawTopMenu(TFT_eSPI &tft) {
-  tft.fillScreen(TFT_BLACK);
+  drawMidnightGradient(tft);
   tft.setTextDatum(TC_DATUM);
 
   // Title
-  tft.setTextColor(0x07FF, TFT_BLACK); // Cyan title
+  tft.setTextColor(0x07FF); // Cyan title
   tft.drawString("SETUP", 64, 8, 2);
 
   // Separator line
@@ -92,7 +121,7 @@ void SetupScreen::drawTopMenu(TFT_eSPI &tft) {
       tft.fillRoundRect(8, py - 2, 112, 24, 3, 0x03FF);
       tft.setTextColor(TFT_BLACK);
     } else {
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      tft.setTextColor(TFT_WHITE);
     }
     tft.drawString(items[i], 64, py + 2, 2);
   }
@@ -106,7 +135,7 @@ void SetupScreen::drawTopMenu(TFT_eSPI &tft) {
   }
 
   // Legend
-  tft.setTextColor(0x7BEF, TFT_BLACK);
+  tft.setTextColor(0x7BEF);
   tft.setTextDatum(BC_DATUM);
   tft.drawString("U/D:Nav  Click:Select", 64, 155, 1);
 }
@@ -114,11 +143,11 @@ void SetupScreen::drawTopMenu(TFT_eSPI &tft) {
 // ── Draw: WiFi Sub-Menu ─────────────────────────────────────────────────────
 
 void SetupScreen::drawWifiMenu(TFT_eSPI &tft) {
-  tft.fillScreen(TFT_BLACK);
+  drawMidnightGradient(tft);
   tft.setTextDatum(TC_DATUM);
 
   // Title
-  tft.setTextColor(0x07FF, TFT_BLACK);
+  tft.setTextColor(0x07FF);
   tft.drawString("WIFI SETUP", 64, 8, 2);
 
   tft.drawFastHLine(10, 26, 108, 0x4208);
@@ -134,13 +163,13 @@ void SetupScreen::drawWifiMenu(TFT_eSPI &tft) {
       tft.fillRoundRect(8, py - 2, 112, 24, 3, 0x03FF);
       tft.setTextColor(TFT_BLACK);
     } else {
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      tft.setTextColor(TFT_WHITE);
     }
     tft.drawString(items[i], 64, py + 2, 2);
 
     // Show preview underneath (small gray text)
     if (previews[i].length() > 0) {
-      tft.setTextColor(i == _wifiIdx ? 0x2104 : 0x7BEF, TFT_BLACK);
+      tft.setTextColor(i == _wifiIdx ? 0x2104 : 0x7BEF);
       String preview = previews[i];
       if (preview.length() > 16)
         preview = preview.substring(0, 16) + "..";
@@ -149,7 +178,7 @@ void SetupScreen::drawWifiMenu(TFT_eSPI &tft) {
   }
 
   // Legend
-  tft.setTextColor(0x7BEF, TFT_BLACK);
+  tft.setTextColor(0x7BEF);
   tft.setTextDatum(BC_DATUM);
   tft.drawString("U/D:Nav Click:Sel L:Back", 64, 155, 1);
 }
@@ -157,15 +186,15 @@ void SetupScreen::drawWifiMenu(TFT_eSPI &tft) {
 // ── Draw: SSID List ─────────────────────────────────────────────────────────
 
 void SetupScreen::drawSsidList(TFT_eSPI &tft) {
-  tft.fillScreen(TFT_BLACK);
+  drawMidnightGradient(tft);
   tft.setTextDatum(TC_DATUM);
 
-  tft.setTextColor(0x07FF, TFT_BLACK);
+  tft.setTextColor(0x07FF);
   tft.drawString("SELECT NETWORK", 64, 5, 2);
   tft.drawFastHLine(10, 22, 108, 0x4208);
 
   if (_ssidCount == 0) {
-    tft.setTextColor(0x7BEF, TFT_BLACK);
+    tft.setTextColor(0x7BEF);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("No networks found", 64, 80, 2);
     tft.setTextDatum(BC_DATUM);
@@ -188,7 +217,7 @@ void SetupScreen::drawSsidList(TFT_eSPI &tft) {
       tft.fillRoundRect(8, py - 2, 112, 20, 3, 0x03FF);
       tft.setTextColor(TFT_BLACK);
     } else {
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      tft.setTextColor(TFT_WHITE);
     }
 
     if (isManual) {
@@ -203,14 +232,14 @@ void SetupScreen::drawSsidList(TFT_eSPI &tft) {
 
   // Scroll indicator
   if (totalItems > maxVisible) {
-    tft.setTextColor(0x7BEF, TFT_BLACK);
+    tft.setTextColor(0x7BEF);
     tft.setTextDatum(BC_DATUM);
     char scrollInfo[16];
     sprintf(scrollInfo, "%d/%d", _ssidIdx + 1, totalItems);
     tft.drawString(scrollInfo, 64, 148, 1);
   }
 
-  tft.setTextColor(0x7BEF, TFT_BLACK);
+  tft.setTextColor(0x7BEF);
   tft.setTextDatum(BC_DATUM);
   tft.drawString("U/D:Nav Click:Sel L:Back", 64, 158, 1);
 }
@@ -219,11 +248,11 @@ void SetupScreen::drawSsidList(TFT_eSPI &tft) {
 
 void SetupScreen::startScan() {
   // Show "Scanning..." message immediately
-  _tft.fillScreen(TFT_BLACK);
-  _tft.setTextColor(0x07FF, TFT_BLACK);
+  drawMidnightGradient(_tft);
+  _tft.setTextColor(0x07FF);
   _tft.setTextDatum(MC_DATUM);
   _tft.drawString("Scanning...", 64, 70, 2);
-  _tft.setTextColor(0x7BEF, TFT_BLACK);
+  _tft.setTextColor(0x7BEF);
   _tft.drawString("Please wait", 64, 95, 1);
 
   // Blocking scan

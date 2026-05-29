@@ -1,11 +1,10 @@
 #include "ClockScreen.h"
 #include "SleekFont.h"
 #include "TallFont.h"
+#include "SystemStatus.h"
 #include <math.h>
 #include <string.h>
 
-// ── Colour palette
-// ────────────────────────────────────────────────────────────
 // Helper to fix the ST7735 physical BGR hardware byte-swap
 inline uint16_t HW_COLOR(uint8_t r, uint8_t g, uint8_t b) {
   return (((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3));
@@ -23,8 +22,7 @@ inline uint16_t HW_COLOR(uint8_t r, uint8_t g, uint8_t b) {
 #define COL_SLEEK_BG HW_COLOR(18, 18, 18)        // Very dark grey
 #define COL_SLEEK_BORDER HW_COLOR(150, 150, 150) // Light grey
 
-// ── Layout (both themes)
-// ──────────────────────────────────────────────────────
+// Layout (both themes)
 #define Y_GRAD_TIME 80 // Center position
 #define Y_GRAD_DATE 140
 
@@ -35,8 +33,26 @@ inline uint16_t HW_COLOR(uint8_t r, uint8_t g, uint8_t b) {
 
 #define X_CENTRE 64
 
-// Helper function to draw the custom tall font to a Sprite for tear-free
-// rendering
+// Fast integer square root algorithm
+static uint32_t isqrt(uint32_t n) {
+  uint32_t res = 0;
+  uint32_t one = 1u << 30; // The second-to-top bit is set
+  while (one > n) {
+    one >>= 2;
+  }
+  while (one != 0) {
+    if (n >= res + one) {
+      n -= res + one;
+      res = (res >> 1) + one;
+    } else {
+      res >>= 1;
+    }
+    one >>= 2;
+  }
+  return res;
+}
+
+// Helper function to draw the custom tall font to a Sprite for tear-free rendering
 void drawTallStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
                           const char *str, uint16_t color) {
   int len = strlen(str);
@@ -80,8 +96,7 @@ void drawTallStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
   }
 }
 
-// Helper function to draw the custom sleek font to a Sprite for tear-free
-// rendering
+// Helper function to draw the custom sleek font to a Sprite for tear-free rendering
 void drawSleekStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
                            const char *str, uint16_t color) {
   int len = strlen(str);
@@ -141,34 +156,57 @@ void drawSleekStringSprite(TFT_eSprite &spr, int sprite_w, int sprite_h,
     }
   }
 }
-// Draw the radial gradient portion into the sprite memory
+
+// Draw the radial gradient portion into the sprite memory using LUT & mirroring
 void drawGradientPart(TFT_eSprite &spr, int sprite_w, int sprite_h,
-                      int screen_start_y) {
-  for (int y = 0; y < sprite_h; y++) {
+                      int screen_start_y, const uint16_t *gradColors) {
+  // Center is at (64, 80) on the screen.
+  // x goes from 0 to 127. dx = x - 64.
+  // y goes from 0 to sprite_h - 1. screen_y = y + screen_start_y.
+  // dy = screen_y - 80.
+  // Since the gradient is perfectly symmetric around y=80 and x=64:
+  // screen_y = 54 to 105. Middle of sprite is at y = 26.
+  // We mirror y and 51 - y, and x and 127 - x.
+  for (int y = 0; y < 26; y++) {
     int screen_y = y + screen_start_y;
-    int dy = screen_y - 80;
+    int dy = 80 - screen_y; // Absolute distance
     int dy2 = dy * dy;
-    for (int x = 0; x < sprite_w; x++) {
-      int dx = x - 64;
-      int d = sqrt(dx * dx + dy2);
-
-      if (d > 120)
-        d = 120;
-
-      uint8_t r = 0;
-      uint8_t g = (d * 20) / 120;
-      uint8_t b = (d * 150) / 120;
-
-      spr.drawPixel(x, y, HW_COLOR(r, g, b));
+    int y_mirror = 51 - y;
+    for (int x = 0; x < 64; x++) {
+      int dx = 64 - 1 - x;
+      int d = isqrt(dx * dx + dy2);
+      if (d > 120) d = 120;
+      uint16_t color = gradColors[d];
+      
+      int x_mirror = 127 - x;
+      
+      spr.drawPixel(x, y, color);
+      spr.drawPixel(x_mirror, y, color);
+      spr.drawPixel(x, y_mirror, color);
+      spr.drawPixel(x_mirror, y_mirror, color);
     }
   }
 }
 
-// ── Constructor
+// ── Constructor & Destructor
 // ───────────────────────────────────────────────────────────────
 ClockScreen::ClockScreen(TFT_eSPI &tft, HardwareManager &hw)
     : _tft(tft), _hw(hw), _needsFullRedraw(true), _needsTimeRedraw(false),
-      _lastSecond(-1), _lastMinute(-1), _theme(ClockTheme::GRADIENT) {}
+      _lastSecond(-1), _lastMinute(-1), _theme(ClockTheme::GRADIENT),
+      _timeSprite(&tft), _sprH(&tft), _sprM(&tft), _sprS(&tft), _spritesCreated(false) {
+  
+  // Precompute the gradient LUT: d = 0 to 120
+  for (int d = 0; d <= 120; d++) {
+    uint8_t r = 0;
+    uint8_t g = (d * 20) / 120;  // 0 -> 20
+    uint8_t b = (d * 150) / 120; // 0 -> 150
+    _gradColors[d] = HW_COLOR(r, g, b);
+  }
+}
+
+ClockScreen::~ClockScreen() {
+  deleteSprites();
+}
 
 // ── Lifecycle
 // ─────────────────────────────────────────────────────────────────
@@ -176,26 +214,71 @@ void ClockScreen::onEntry() {
   _needsFullRedraw = true;
   _lastSecond = -1;
   _lastMinute = -1;
+  createSprites();
+}
+
+void ClockScreen::onExit() {
+  deleteSprites();
+}
+
+// ── Persistent Sprite Allocations
+// ─────────────────────────────────────────────────────────────────
+void ClockScreen::createSprites() {
+  if (_spritesCreated) return;
+  
+  Serial.println("[CLOCK] Allocating persistent sprites...");
+  if (_theme == ClockTheme::GRADIENT) {
+    _timeSprite.setColorDepth(16);
+    _timeSprite.createSprite(128, TALL_DIGIT_H + 8);
+  } else {
+    int box_h = SLEEK_DIGIT_H + 4;
+    _sprH.setColorDepth(16);
+    _sprH.createSprite(124, box_h);
+    _sprM.setColorDepth(16);
+    _sprM.createSprite(124, box_h);
+    _sprS.setColorDepth(16);
+    _sprS.createSprite(124, box_h);
+  }
+  _spritesCreated = true;
+}
+
+void ClockScreen::deleteSprites() {
+  if (!_spritesCreated) return;
+  
+  Serial.println("[CLOCK] Deleting persistent sprites...");
+  if (_theme == ClockTheme::GRADIENT) {
+    _timeSprite.deleteSprite();
+  } else {
+    _sprH.deleteSprite();
+    _sprM.deleteSprite();
+    _sprS.deleteSprite();
+  }
+  _spritesCreated = false;
 }
 
 // ── Update
 // ────────────────────────────────────────────────────────────────────
 void ClockScreen::update(unsigned long now) {
-  DateTime current = _hw.getCurrentTime();
+  // Read time from thread-safe global status
+  DateTime current;
+  if (xStatusMutex != NULL && xSemaphoreTake(xStatusMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    current = sysStatus.currentTime;
+    xSemaphoreGive(xStatusMutex);
+  } else {
+    // Fallback if mutex unavailable
+    current = _hw.getCurrentTime();
+  }
+
   if (current.minute() != _lastMinute) {
     _lastTime = current;
     _lastMinute = current.minute();
     _lastSecond = current.second();
 
-    // We only need a full screen redraw (to update the date and whole
-    // background) when the day changes, or upon initial entry. For minute
-    // changes, updating the time sprite is enough!
     if (_lastMinute == 0 && current.hour() == 0) {
       _needsFullRedraw = true;
     } else {
       _needsTimeRedraw = true;
     }
-
   } else if (current.second() != _lastSecond) {
     _lastTime = current;
     _lastSecond = current.second();
@@ -203,34 +286,32 @@ void ClockScreen::update(unsigned long now) {
   }
 }
 
-// ── Background helper
+// ── Background helper (4-way quadrant mirroring + integer isqrt)
 // ─────────────────────────────────────────────────────────
 void ClockScreen::drawBackground(TFT_eSPI &tft) {
   if (_theme == ClockTheme::GRADIENT) {
-    // Draw full screen radial gradient manually (only done once per minute)
-    for (int y = 0; y < 160; y++) {
-      int dy = y - 80;
+    // Draw full screen radial gradient using 4-way quadrant mirroring around (64, 80)
+    tft.startWrite(); // Fast SPI write block
+    for (int dy = 0; dy < 80; dy++) {
       int dy2 = dy * dy;
-      for (int x = 0; x < 128; x++) {
-        int dx = x - 64;
-        int d = sqrt(dx * dx + dy2);
-
-        // Let's stretch the gradient further to the corners
-        if (d > 120)
-          d = 120;
-
-        // At center (d=0) we want Dark Navy (e.g. 0, 0, 20)
-        // At edges (d=120) we want a richer, almost black blue (e.g. 0, 0, 4)
-        // Actually, user wants Navy Blue on the OUTSIDE, and Black on the
-        // INSIDE. d=0 -> Black (0, 0, 0) d=120 -> Navy Blue (0, 20, 80)
-
-        uint8_t r = 0;
-        uint8_t g = (d * 20) / 120;  // 0 -> 20
-        uint8_t b = (d * 150) / 120; // 0 -> 150
-
-        tft.drawPixel(x, y, HW_COLOR(r, g, b));
+      int y1 = 80 - 1 - dy; // Top half
+      int y2 = 80 + dy;     // Bottom half
+      for (int dx = 0; dx < 64; dx++) {
+        int dx2 = dx * dx;
+        int d = isqrt(dx2 + dy2);
+        if (d > 120) d = 120;
+        uint16_t color = _gradColors[d];
+        
+        int x1 = 64 - 1 - dx; // Left half
+        int x2 = 64 + dx;     // Right half
+        
+        tft.drawPixel(x1, y1, color);
+        tft.drawPixel(x2, y1, color);
+        tft.drawPixel(x1, y2, color);
+        tft.drawPixel(x2, y2, color);
       }
     }
+    tft.endWrite();
   } else {
     // Sleek Modern: flat very-dark-grey
     tft.fillScreen(COL_SLEEK_BG);
@@ -258,24 +339,17 @@ void ClockScreen::draw(TFT_eSPI &tft) {
       sprintf(timeBuf, "%02d:%02d:%02d", _lastTime.hour(), _lastTime.minute(),
               _lastTime.second());
 
-      // Create a sprite to draw the time without flickering
       int box_h = TALL_DIGIT_H + 8;
       int start_y = Y_GRAD_TIME - box_h / 2;
 
-      TFT_eSprite spr = TFT_eSprite(&tft);
-      spr.setColorDepth(16);
-      spr.createSprite(128, box_h);
-
-      drawGradientPart(spr, 128, box_h, start_y);
-      drawTallStringSprite(spr, 128, box_h, timeBuf, COL_GRAD_TIME);
-
-      spr.pushSprite(0, start_y);
-      spr.deleteSprite();
+      // Draw gradient and text into persistent sprite
+      _timeSprite.fillSprite(TFT_BLACK);
+      drawGradientPart(_timeSprite, 128, box_h, start_y, _gradColors);
+      drawTallStringSprite(_timeSprite, 128, box_h, timeBuf, COL_GRAD_TIME);
+      _timeSprite.pushSprite(0, start_y);
 
     } else { // SLEEK
       uint16_t bgCol = COL_SLEEK_BG;
-
-      // Using sleek sprite to avoid flicker and use proportional font
       int box_h = SLEEK_DIGIT_H + 4;
 
       char bufH[8], bufM[8], bufS[8];
@@ -283,29 +357,17 @@ void ClockScreen::draw(TFT_eSPI &tft) {
       sprintf(bufM, "%02d:", _lastTime.minute());
       sprintf(bufS, "%02d ", _lastTime.second());
 
-      TFT_eSprite sprH = TFT_eSprite(&tft);
-      sprH.setColorDepth(16);
-      sprH.createSprite(124, box_h);
-      sprH.fillSprite(bgCol);
-      drawSleekStringSprite(sprH, 124, box_h, bufH, COL_SLEEK_HOURS);
-      sprH.pushSprite(2, Y_SLEEK_HOUR);
-      sprH.deleteSprite();
+      _sprH.fillSprite(bgCol);
+      drawSleekStringSprite(_sprH, 124, box_h, bufH, COL_SLEEK_HOURS);
+      _sprH.pushSprite(2, Y_SLEEK_HOUR);
 
-      TFT_eSprite sprM = TFT_eSprite(&tft);
-      sprM.setColorDepth(16);
-      sprM.createSprite(124, box_h);
-      sprM.fillSprite(bgCol);
-      drawSleekStringSprite(sprM, 124, box_h, bufM, COL_SLEEK_MINS);
-      sprM.pushSprite(2, Y_SLEEK_MIN);
-      sprM.deleteSprite();
+      _sprM.fillSprite(bgCol);
+      drawSleekStringSprite(_sprM, 124, box_h, bufM, COL_SLEEK_MINS);
+      _sprM.pushSprite(2, Y_SLEEK_MIN);
 
-      TFT_eSprite sprS = TFT_eSprite(&tft);
-      sprS.setColorDepth(16);
-      sprS.createSprite(124, box_h);
-      sprS.fillSprite(bgCol);
-      drawSleekStringSprite(sprS, 124, box_h, bufS, COL_SLEEK_SECS);
-      sprS.pushSprite(2, Y_SLEEK_SEC);
-      sprS.deleteSprite();
+      _sprS.fillSprite(bgCol);
+      drawSleekStringSprite(_sprS, 124, box_h, bufS, COL_SLEEK_SECS);
+      _sprS.pushSprite(2, Y_SLEEK_SEC);
     }
 
     _needsFullRedraw = false;
@@ -320,15 +382,10 @@ void ClockScreen::draw(TFT_eSPI &tft) {
       int box_h = TALL_DIGIT_H + 8;
       int start_y = Y_GRAD_TIME - box_h / 2;
 
-      TFT_eSprite spr = TFT_eSprite(&tft);
-      spr.setColorDepth(16);
-      spr.createSprite(128, box_h);
-
-      drawGradientPart(spr, 128, box_h, start_y);
-      drawTallStringSprite(spr, 128, box_h, timeBuf, COL_GRAD_TIME);
-
-      spr.pushSprite(0, start_y);
-      spr.deleteSprite();
+      _timeSprite.fillSprite(TFT_BLACK);
+      drawGradientPart(_timeSprite, 128, box_h, start_y, _gradColors);
+      drawTallStringSprite(_timeSprite, 128, box_h, timeBuf, COL_GRAD_TIME);
+      _timeSprite.pushSprite(0, start_y);
 
     } else { // SLEEK
       uint16_t bgCol = COL_SLEEK_BG;
@@ -339,29 +396,17 @@ void ClockScreen::draw(TFT_eSPI &tft) {
       sprintf(bufM, "%02d:", _lastTime.minute());
       sprintf(bufS, "%02d ", _lastTime.second());
 
-      TFT_eSprite sprH = TFT_eSprite(&tft);
-      sprH.setColorDepth(16);
-      sprH.createSprite(124, box_h);
-      sprH.fillSprite(bgCol);
-      drawSleekStringSprite(sprH, 124, box_h, bufH, COL_SLEEK_HOURS);
-      sprH.pushSprite(2, Y_SLEEK_HOUR);
-      sprH.deleteSprite();
+      _sprH.fillSprite(bgCol);
+      drawSleekStringSprite(_sprH, 124, box_h, bufH, COL_SLEEK_HOURS);
+      _sprH.pushSprite(2, Y_SLEEK_HOUR);
 
-      TFT_eSprite sprM = TFT_eSprite(&tft);
-      sprM.setColorDepth(16);
-      sprM.createSprite(124, box_h);
-      sprM.fillSprite(bgCol);
-      drawSleekStringSprite(sprM, 124, box_h, bufM, COL_SLEEK_MINS);
-      sprM.pushSprite(2, Y_SLEEK_MIN);
-      sprM.deleteSprite();
+      _sprM.fillSprite(bgCol);
+      drawSleekStringSprite(_sprM, 124, box_h, bufM, COL_SLEEK_MINS);
+      _sprM.pushSprite(2, Y_SLEEK_MIN);
 
-      TFT_eSprite sprS = TFT_eSprite(&tft);
-      sprS.setColorDepth(16);
-      sprS.createSprite(124, box_h);
-      sprS.fillSprite(bgCol);
-      drawSleekStringSprite(sprS, 124, box_h, bufS, COL_SLEEK_SECS);
-      sprS.pushSprite(2, Y_SLEEK_SEC);
-      sprS.deleteSprite();
+      _sprS.fillSprite(bgCol);
+      drawSleekStringSprite(_sprS, 124, box_h, bufS, COL_SLEEK_SECS);
+      _sprS.pushSprite(2, Y_SLEEK_SEC);
     }
     _needsTimeRedraw = false;
   }
@@ -371,8 +416,13 @@ void ClockScreen::draw(TFT_eSPI &tft) {
 // ─────────────────────────────────────────────────────────────────────
 void ClockScreen::handleInput(const ControlState &state) {
   if (state.joyCenter == ButtonEvent::SHORT_PRESS) {
-    _theme = (_theme == ClockTheme::GRADIENT) ? ClockTheme::SLEEK
-                                              : ClockTheme::GRADIENT;
+    // Delete sprites of current theme
+    deleteSprites();
+    // Swap theme
+    _theme = (_theme == ClockTheme::GRADIENT) ? ClockTheme::SLEEK : ClockTheme::GRADIENT;
+    // Reallocate sprites for the new theme
+    createSprites();
+    
     _needsFullRedraw = true;
     Serial.printf("[CLOCK] Theme toggled -> %s\n",
                   (_theme == ClockTheme::GRADIENT) ? "GRADIENT" : "SLEEK");

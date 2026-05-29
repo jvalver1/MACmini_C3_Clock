@@ -21,13 +21,15 @@ ConfigData NetworkManager::loadConfig() {
   ConfigData cfg;
   cfg.ssid = _prefs.getString("ssid", "");
   cfg.pass = _prefs.getString("pass", "");
-  cfg.cityName = _prefs.getString("city", "Madrid");
-  cfg.lat = _prefs.getFloat("lat", 40.4168f);
-  cfg.lon = _prefs.getFloat("lon", -3.7038f);
+  cfg.cityName = _prefs.getString("city", "Swindon");
+  cfg.lat = _prefs.getFloat("lat", 51.55797f);
+  cfg.lon = _prefs.getFloat("lon", -1.78116f);
   return cfg;
 }
 
 bool NetworkManager::connect() {
+  WiFi.mode(WIFI_STA);
+
   // Use Preferences SSID if available, otherwise fall back to config.h
   const char *ssid;
   const char *pass;
@@ -41,13 +43,21 @@ bool NetworkManager::connect() {
     Serial.printf("[NET] No saved SSID, using config.h: %s\n", ssid);
   }
 
+  WiFi.disconnect(false);
   WiFi.begin(ssid, pass);
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     attempts++;
   }
-  return WiFi.status() == WL_CONNECTED;
+  bool connected = WiFi.status() == WL_CONNECTED;
+  if (connected) {
+    Serial.printf("[NET] Connected. IP=%s RSSI=%d dBm\n",
+                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  } else {
+    Serial.printf("[NET] Connection failed. WiFi status=%d\n", WiFi.status());
+  }
+  return connected;
 }
 
 bool NetworkManager::syncTime() {
@@ -102,14 +112,185 @@ bool NetworkManager::syncTime() {
 }
 
 bool NetworkManager::geocode(String city, float &lat, float &lon) {
-  // Placeholder for actual OpenWeatherMap Geocoding API call
-  // Requires an API key which we'll add to config later
+  if (city.equalsIgnoreCase("Swindon") ||
+      city.equalsIgnoreCase("Swindon UK") ||
+      city.equalsIgnoreCase("Swindon, UK")) {
+    lat = 51.55797f;
+    lon = -1.78116f;
+    return true;
+  }
   return false;
 }
 
 bool NetworkManager::fetchWeather(String &city, float &temp, String &desc) {
-  // Placeholder for actual Weather API call
-  return false;
+  WeatherData weather;
+  bool ok = fetchWeather(weather);
+  if (ok) {
+    city = weather.city;
+    temp = weather.temperature;
+    desc = weather.description;
+  }
+  return ok;
+}
+
+namespace {
+const char *weatherDescription(int code, bool isDay) {
+  switch (code) {
+  case 0:
+    return isDay ? "Sunny" : "Clear Night";
+  case 1:
+  case 2:
+    return isDay ? "Partly Cloudy" : "Partly Cloudy Night";
+  case 3:
+    return isDay ? "Cloudy" : "Cloudy Night";
+  case 45:
+  case 48:
+    return "Fog";
+  case 51:
+  case 53:
+  case 55:
+  case 56:
+  case 57:
+  case 61:
+  case 63:
+    return "Rain";
+  case 65:
+  case 66:
+  case 67:
+  case 80:
+  case 81:
+  case 82:
+    return "Heavy Rain";
+  case 71:
+  case 73:
+    return "Snow";
+  case 75:
+  case 77:
+    return "Heavy Snow";
+  case 85:
+  case 86:
+    return "Rain & Snow";
+  case 95:
+  case 96:
+  case 99:
+    return "Thunderstorm";
+  default:
+    return "Weather";
+  }
+}
+
+int parseHour(const char *isoTime) {
+  if (isoTime == nullptr || strlen(isoTime) < 13) {
+    return 0;
+  }
+  return (isoTime[11] - '0') * 10 + (isoTime[12] - '0');
+}
+} // namespace
+
+bool NetworkManager::fetchWeather(WeatherData &weather) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WEATHER] WiFi not connected.");
+    return false;
+  }
+
+  ConfigData cfg = loadConfig();
+  if (cfg.cityName.equalsIgnoreCase("Swindon") ||
+      cfg.cityName.equalsIgnoreCase("Swindon UK") ||
+      cfg.cityName.equalsIgnoreCase("Swindon, UK")) {
+    cfg.cityName = "Swindon";
+    cfg.lat = 51.55797f;
+    cfg.lon = -1.78116f;
+  }
+
+  String url = "http://api.open-meteo.com/v1/forecast";
+  url += "?latitude=" + String(cfg.lat, 5);
+  url += "&longitude=" + String(cfg.lon, 5);
+  url += "&current=temperature_2m,precipitation_probability,rain,showers,";
+  url += "snowfall,weather_code,cloud_cover,pressure_msl,wind_speed_10m,";
+  url += "wind_direction_10m,is_day";
+  url += "&hourly=temperature_2m,precipitation_probability,cloud_cover,weather_code";
+  url += "&forecast_hours=3&timezone=Europe%2FLondon";
+
+  HTTPClient http;
+  http.setTimeout(12000);
+  http.setReuse(false);
+  http.useHTTP10(true);
+  Serial.printf("[WEATHER] GET %s\n", url.c_str());
+  http.begin(url);
+  int code = http.GET();
+  if (code != HTTP_CODE_OK) {
+    Serial.printf("[WEATHER] Open-Meteo request failed: HTTP %d\n", code);
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+  http.end();
+  Serial.printf("[WEATHER] Payload bytes: %u\n", payload.length());
+
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, payload);
+  if (err) {
+    Serial.printf("[WEATHER] JSON parse failed: %s\n", err.c_str());
+    return false;
+  }
+
+  JsonObject current = doc["current"];
+  JsonObject hourly = doc["hourly"];
+  if (current.isNull()) {
+    Serial.println("[WEATHER] Missing current weather data.");
+    return false;
+  }
+
+  weather = WeatherData();
+  weather.city = cfg.cityName;
+  weather.temperature = current["temperature_2m"] | 0.0f;
+  weather.weatherCode = current["weather_code"] | 0;
+  weather.isDay = (current["is_day"] | 1) == 1;
+  weather.precipitationProbability =
+      current["precipitation_probability"] | -1;
+  weather.rain = current["rain"] | 0.0f;
+  weather.showers = current["showers"] | 0.0f;
+  weather.snowfall = current["snowfall"] | 0.0f;
+  weather.cloudCover = current["cloud_cover"] | 0;
+  weather.pressure = current["pressure_msl"] | 0.0f;
+  weather.windSpeed = current["wind_speed_10m"] | 0.0f;
+  weather.windDirection = current["wind_direction_10m"] | 0;
+  weather.description =
+      weatherDescription(weather.weatherCode, weather.isDay);
+
+  JsonArray times = hourly["time"].as<JsonArray>();
+  JsonArray temps = hourly["temperature_2m"].as<JsonArray>();
+  JsonArray probs = hourly["precipitation_probability"].as<JsonArray>();
+  JsonArray clouds = hourly["cloud_cover"].as<JsonArray>();
+  JsonArray codes = hourly["weather_code"].as<JsonArray>();
+
+  for (int i = 0; i < 2; i++) {
+    int src = i + 1;
+    if (times.size() <= src && times.size() > i) {
+      src = i;
+    }
+    if (temps.size() > src && probs.size() > src && clouds.size() > src &&
+        codes.size() > src) {
+      const char *timeText = times[src] | "";
+      weather.hourly[i].hour = parseHour(timeText);
+      weather.hourly[i].temperature = temps[src] | 0.0f;
+      weather.hourly[i].precipitationProbability = probs[src] | 0;
+      weather.hourly[i].cloudCover = clouds[src] | 0;
+      weather.hourly[i].weatherCode = codes[src] | 0;
+      weather.hourly[i].valid = true;
+    }
+  }
+
+  if (weather.precipitationProbability < 0) {
+    weather.precipitationProbability =
+        weather.hourly[0].valid ? weather.hourly[0].precipitationProbability : 0;
+  }
+
+  weather.valid = true;
+  Serial.printf("[WEATHER] %s: %.1fC, %s\n", weather.city.c_str(),
+                weather.temperature, weather.description.c_str());
+  return true;
 }
 
 int NetworkManager::scanNetworks(String results[], int maxCount) {
